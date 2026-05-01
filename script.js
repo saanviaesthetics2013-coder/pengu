@@ -1,10 +1,11 @@
-// ---------------- TAB SYSTEM ----------------
+
+// ================= TAB SYSTEM =================
 function showTab(id) {
   document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
   document.getElementById(id).classList.add("active");
 }
 
-// ---------------- 3D PENGUIN ----------------
+// ================= 3D PENGUIN =================
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, 2, 0.1, 1000);
 
@@ -42,7 +43,14 @@ function animate() {
 }
 animate();
 
-// ---------------- VOICE ----------------
+// ================= EMOTIONS =================
+function setMood(mood) {
+  const el = document.getElementById("penguin3d");
+  el.classList.remove("idle","happy","thinking","talking");
+  el.classList.add(mood);
+}
+
+// ================= VOICE =================
 function speak(text) {
   let s = new SpeechSynthesisUtterance(text);
   s.pitch = 1.3;
@@ -50,60 +58,120 @@ function speak(text) {
   window.speechSynthesis.speak(s);
 }
 
-// ---------------- LISTENING ----------------
+// ================= LISTEN =================
 function startListening() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   let rec = new SR();
 
   rec.start();
+  setMood("thinking");
 
-  rec.onstart = () => console.log("Listening...");
-  
   rec.onresult = (e) => {
     let text = e.results[0][0].transcript;
     handleAI(text);
   };
 }
 
-// ---------------- AI BRAIN ----------------
-function handleAI(input) {
+// ================= AI CORE =================
+async function handleAI(input) {
   let chatBox = document.getElementById("chatBox");
 
   chatBox.innerHTML += `<p><b>You:</b> ${input}</p>`;
 
-  let reply = brain(input);
+  setMood("thinking");
+
+  let reply = await getAIResponse(input);
+
+  chatBox.innerHTML += `<p><b>Pengu:</b> ${reply}</p>`;
 
   speak(reply);
 
-  chatBox.innerHTML += `<p><b>Pengu:</b> ${reply}</p>`;
+  setMood("talking");
+
+  setTimeout(() => setMood("idle"), 1500);
 }
 
-// ---------------- PENGU PERSONALITY ----------------
-function brain(text) {
+// ================= REAL AI + FALLBACK =================
+async function getAIResponse(text) {
   text = text.toLowerCase();
 
-  if (text.includes("hello")) return "Hiii I’m Pengu 🐧";
-  if (text.includes("your name")) return "I’m Pengu, your AI buddy!";
-  if (text.includes("joke")) return "Why did penguin cross ice? To chill 😂";
-  if (text.includes("love")) return "I love coding with you 💙";
+  // ===== REAL AI MODE (if API key added) =====
+  const API_KEY = ""; // <-- put key here if you want real AI
 
-  return "I’m still learning human language 🐧✨";
+  if (API_KEY) {
+    try {
+      let res = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer " + API_KEY
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages: [
+            {
+              role: "system",
+              content: "You are Pengu, a cute friendly AI penguin assistant."
+            },
+            {
+              role: "user",
+              content: text
+            }
+          ]
+        })
+      });
+
+      let data = await res.json();
+      return data.choices[0].message.content;
+    } catch (e) {
+      return fallbackBrain(text);
+    }
+  }
+
+  // ===== OFFLINE MODE =====
+  return fallbackBrain(text);
 }
 
-// ---------------- CHAT ----------------
+// ================= OFFLINE PENGU BRAIN =================
+function fallbackBrain(text) {
+
+  if (text.includes("hello") || text.includes("hi"))
+    return "Hii I'm Pengu 🐧✨";
+
+  if (text.includes("name"))
+    return "I'm Pengu, your AI penguin buddy 🐧";
+
+  if (text.includes("love"))
+    return "I love coding with you 💙";
+
+  if (text.includes("joke"))
+    return "Why don't penguins get lost? Because they always follow ice maps 😂";
+
+  if (text.includes("you smart"))
+    return "I'm getting smarter every day 🧠❄️";
+
+  return "I'm still learning... but I'm always with you 🐧✨";
+}
+
+// ================= CHAT INPUT =================
 function sendMessage() {
   let input = document.getElementById("userInput").value;
+  if (!input) return;
   handleAI(input);
 }
 
-// ---------------- TRANSLATOR ----------------
+// ================= TRANSLATOR =================
 async function translateText() {
   let text = document.getElementById("text").value;
   let lang = document.getElementById("lang").value;
 
   let res = await fetch("https://libretranslate.de/translate", {
     method: "POST",
-    body: JSON.stringify({ q: text, source: "en", target: lang }),
+    body: JSON.stringify({
+      q: text,
+      source: "en",
+      target: lang
+    }),
     headers: { "Content-Type": "application/json" }
   });
 
@@ -111,7 +179,7 @@ async function translateText() {
   document.getElementById("output").innerText = data.translatedText;
 }
 
-// ---------------- CURRENCY ----------------
+// ================= CURRENCY =================
 async function convertCurrency() {
   let amount = document.getElementById("amount").value;
   let currency = document.getElementById("country").value;
